@@ -1,0 +1,23 @@
+{
+	"private": true,
+	"devDependencies": {
+		"@types/node": "^20.4.1"
+	},
+	"name": "open.envx.common-lib",
+	"version": "0.0.0",
+	"description": "A tiny project that contains different tiny scripts that are not large enough to become an isolated project",
+	"main": "index.js",
+	"scripts": {
+		"test": "echo \"Error: no test specified\" && exit 1"
+	},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/JCloudYu/open.envx.common-lib.git"
+	},
+	"author": "JCloudYu",
+	"license": "ISC",
+	"bugs": {
+		"url": "https://github.com/JCloudYu/open.envx.common-lib/issues"
+	},
+	"homepage": "https://github.com/JCloudYu/open.envx.common-lib#readme"
+}
