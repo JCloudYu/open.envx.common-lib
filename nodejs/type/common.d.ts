@@ -29,6 +29,9 @@ declare type float64		= double;
 
 declare type epoch			= number;
 declare type epoch_milli	= number;
+declare type dur_sec		= number;
+declare type dur_milli		= number;
+
 declare type num_str		= string;
 declare type json_str		= string;
 
