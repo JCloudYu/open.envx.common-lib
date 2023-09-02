@@ -18,7 +18,9 @@ interface LogInfoType {
 interface LogWriter {(msg:LogInfoType):void};
 
 
-const LoggerRuntime:{writer:LogWriter} = { writer:(m)=>console.log(JSON.stringify(m)) };
+const JSONWriter = (d:any)=>console.log(JSON.stringify(d));
+const ConsoleWriter = (d:any)=>console.log(`[${d.log_time}][${d.l}]${d.tags.map((i:string)=>`[${i}]`).join('')}`, d.p.ctnt);
+const LoggerRuntime:{writer:LogWriter} = { writer:ConsoleWriter };
 const LogStreamMeta:WeakMap<LogStream, LogStreamMetaInfo> = new WeakMap();
 class LogStream {
 	constructor() {
@@ -111,7 +113,17 @@ function Log(payload:LogInfoType) {
 export const LogTool = Object.defineProperties(new LogStream(), {
 	__writer:{
 		configurable:true, enumerable:true,
-		set:(writer:LogWriter)=>{
+		set:(writer:LogWriter|string)=>{
+			if ( typeof writer === 'string' ) {
+				if ( writer === 'json' ) {
+					LoggerRuntime.writer = JSONWriter;
+				}
+				else {
+					LoggerRuntime.writer = ConsoleWriter;
+				}
+			}
+
+
 			if ( typeof writer !== "function" ) {
 				throw new TypeError("__writer accepts only functions");
 			}
@@ -181,186 +193,3 @@ function fnv1a32(octets:Uint8Array) {
 	}
 	return U32RESULT[0];
 }
-
-
-
-
-
-
-// TermCtrl
-type TerminateStages = 'terminate:init'|'terminate:preproc'|'terminate:predata'|'terminate:data'|'terminate:postproc'|'terminate:final';
-declare global {
-	namespace NodeJS {
-		interface Process {
-			emit(evt:'terminate', error?:CodedError|NodeJS.Signals):this;
-			emit(evt:TerminateStages):this;
-
-			on(evt:'terminate', handler:(error?:CodedError|NodeJS.Signals)=>void):this;
-			on(evt:TerminateStages, handler:()=>void):this;
-
-			once(evt:'terminate', handler:(error?:CodedError|NodeJS.Signals)=>void):this;
-			once(evt:TerminateStages, handler:()=>void):this;
-		}
-	}
-}
-
-interface CallbackFunc {():Promise<void>|void};
-const cleanup_stages :{[key in 'preproc'|'predata'|'data'|'postproc'|'final']:CallbackFunc[]}= { preproc:[], predata:[], data:[], postproc:[], final:[] };
-
-export class ContextCtrl {
-	static timeout:number = 30_000;
-	static preproc(cb:CallbackFunc){
-		cleanup_stages.preproc.push(cb);
-	}
-	static predata(cb:CallbackFunc){
-		cleanup_stages.predata.push(cb);
-	}
-	static data(cb:CallbackFunc) {
-		cleanup_stages.data.push(cb);
-	}
-	static postproc(cb:CallbackFunc){
-		cleanup_stages.postproc.push(cb);
-	}
-	static final(cb:CallbackFunc) {
-		cleanup_stages.final.push(cb);
-	}
-}
-
-process.once('terminate', async(state)=>{
-	process.emit('terminate:init');
-	let timeout = setTimeout(()=>{
-		console.error("Termination timeout!");
-		process.exit(1);
-	}, ContextCtrl.timeout);
-
-
-	
-	for(const stage of (['preproc', 'predata', 'data', 'postproc', 'final'] as const)) {
-		process.emit(`terminate:${stage}`);
-		const handlers = cleanup_stages[stage].filter((i)=>typeof i === "function");
-		await Promise.all(handlers.map((i)=>i()));
-	}
-
-
-	clearTimeout(timeout);
-	if ( state === undefined ) {
-		process.exit(0);
-	}
-
-	if ( typeof state === "string" ) {
-		let exit_code = 1;
-		
-		switch(state) {
-			case 'SIGHUP':
-				exit_code = 128 + 1;
-				break;
-			case 'SIGINT':
-				exit_code = 128 + 2;
-				break;
-			case 'SIGQUIT':
-				exit_code = 128 + 3;
-				break;
-			case 'SIGILL':
-				exit_code = 128 + 4;
-				break;
-			case 'SIGTRAP':
-				exit_code = 128 + 5;
-				break;
-			case 'SIGABRT':
-			case 'SIGIOT':
-				exit_code = 128 + 6;
-				break;
-			case 'SIGBUS':
-				exit_code = 128 + 7;
-				break;
-			case 'SIGFPE':
-				exit_code = 128 + 8;
-				break;
-			case 'SIGKILL':
-				exit_code = 128 + 9;
-				break;
-			case 'SIGUSR1':
-				exit_code = 128 + 10;
-				break;
-			case 'SIGSEGV':
-				exit_code = 128 + 11;
-				break;
-			case 'SIGUSR2':
-				exit_code = 128 + 12;
-				break;
-			case 'SIGPIPE':
-				exit_code = 128 + 13;
-				break;
-			case 'SIGALRM':
-				exit_code = 128 + 14;
-				break;
-			case 'SIGTERM':
-				exit_code = 128 + 15;
-				break;
-			case 'SIGSTKFLT':
-				exit_code = 128 + 16;
-				break;
-			case 'SIGCHLD':
-				exit_code = 128 + 17;
-				break;
-			case 'SIGCONT':
-				exit_code = 128 + 18;
-				break;
-			case 'SIGSTOP':
-				exit_code = 128 + 19;
-				break;
-			case 'SIGTSTP':
-				exit_code = 128 + 20;
-				break;
-			case 'SIGTTIN':
-				exit_code = 128 + 21;
-				break;
-			case 'SIGTTOU':
-				exit_code = 128 + 22;
-				break;
-			case 'SIGURG':
-				exit_code = 128 + 23;
-				break;
-			case 'SIGXCPU':
-				exit_code = 128 + 24;
-				break;
-			case 'SIGXFSZ':
-				exit_code = 128 + 25;
-				break;
-			case 'SIGVTALRM':
-				exit_code = 128 + 26;
-				break;
-			case 'SIGPROF':
-				exit_code = 128 + 27;
-				break;
-			case 'SIGWINCH':
-				exit_code = 128 + 28;
-				break;
-			case 'SIGIO':
-			case 'SIGPOLL':
-				exit_code = 128 + 29;
-				break;
-			case 'SIGPWR':
-				exit_code = 128 + 30;
-				break;
-			case 'SIGSYS':
-			case 'SIGUNUSED':
-				exit_code = 128 + 31;
-				break;
-			default:
-				exit_code = 1;
-				break;
-		}
-
-		process.exit(exit_code);
-	}
-	
-	if ( state instanceof Error ) {
-		process.exit(1);
-	}
-});
-
-
-export const Misc = Object.freeze({
-	ToLocalISOString
-});
