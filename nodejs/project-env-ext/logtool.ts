@@ -19,7 +19,7 @@ interface LogWriter {(msg:LogInfoType):void};
 
 
 const JSONWriter = (d:any)=>console.log(JSON.stringify(d));
-const ConsoleWriter = (d:any)=>console.log(`[${d.log_time}][${d.l}]${d.tags.map((i:string)=>`[${i}]`).join('')}`, d.p.ctnt);
+const ConsoleWriter = (d:any)=>console.log(`[${d.t}][${d.l}]${d.p.tags.map((i:string)=>`[${i}]`).join('')}`, d.p.ctnt);
 const LoggerRuntime:{writer:LogWriter} = { writer:ConsoleWriter };
 const LogStreamMeta:WeakMap<LogStream, LogStreamMetaInfo> = new WeakMap();
 class LogStream {
