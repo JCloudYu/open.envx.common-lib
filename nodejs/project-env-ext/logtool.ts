@@ -3,9 +3,22 @@ const SESSION_ID = crypto.randomBytes(10);
 let SEQ:number = 0;
 
 
+
+const VerboseLevel = Object.freeze({
+	FATAL: 100,
+	ERROR:	80,
+	WARN:	60,
+	INFO:	40,
+	DEBUG:	20,
+	ALL:	0
+} as const);
+type VerboseLevels = typeof VerboseLevel[keyof typeof VerboseLevel];
+
+
+
 type CodedError = Error & {code?:string;}
 interface LogStreamMetaInfo {
-	time_milli:boolean; tags:string[]
+	time_milli:boolean; tags:string[]; level:VerboseLevels
 };
 interface LogInfoType {
 	t: string;
@@ -18,6 +31,8 @@ interface LogInfoType {
 interface LogWriter {(msg:LogInfoType):void};
 
 
+
+
 const JSONWriter = (d:any)=>console.log(JSON.stringify(d));
 const ConsoleWriter = (d:any)=>console.log(`[${d.t}][${d.l}]${d.p.tags.map((i:string)=>`[${i}]`).join('')}`, d.p.ctnt);
 const LoggerRuntime:{writer:LogWriter} = { writer:ConsoleWriter };
@@ -26,13 +41,17 @@ class LogStream {
 	constructor() {
 		LogStreamMeta.set(this, {
 			time_milli:false,
-			tags: []
+			tags: [],
+			level: VerboseLevel.INFO
 		});
 	}
 
 	get time_milli() { return LogStreamMeta.get(this)!.time_milli; }
 	set time_milli(show_milli) { LogStreamMeta.get(this)!.time_milli = !!show_milli; }
 	get tags() { return LogStreamMeta.get(this)!.tags; }
+	
+	get level() { return LogStreamMeta.get(this)!.level; }
+	set level(level:VerboseLevels) { LogStreamMeta.get(this)!.level = level; }
 
 	clone() {
 		const new_stream = new LogStream();
@@ -41,6 +60,8 @@ class LogStream {
 	}
 	debug(...contents:any[]) {
 		const curr_meta = LogStreamMeta.get(this)!;
+		if ( VerboseLevel.DEBUG < curr_meta.level ) return;
+
 		const log_time = ToLocalISOString(curr_meta.time_milli);
 		const batch = fnv1a32(Buffer.concat([SESSION_ID, Buffer.from(log_time), Buffer.from((new Uint32Array([SEQ = (SEQ+1)%0xFFFFFFFF])).buffer)]));
 		for(const content of contents) {
@@ -49,6 +70,8 @@ class LogStream {
 	}
 	info(...contents:any[]) {
 		const curr_meta = LogStreamMeta.get(this)!;
+		if ( VerboseLevel.INFO < curr_meta.level ) return;
+		
 		const log_time = ToLocalISOString(curr_meta.time_milli);
 		const batch = fnv1a32(Buffer.concat([SESSION_ID, Buffer.from(log_time), Buffer.from((new Uint32Array([SEQ = (SEQ+1)%0xFFFFFFFF])).buffer)]));
 		for(const content of contents) {
@@ -57,6 +80,8 @@ class LogStream {
 	}
 	warn(...contents:any[]) {
 		const curr_meta = LogStreamMeta.get(this)!;
+		if ( VerboseLevel.WARN < curr_meta.level ) return;
+		
 		const log_time = ToLocalISOString(curr_meta.time_milli);
 		const batch = fnv1a32(Buffer.concat([SESSION_ID, Buffer.from(log_time), Buffer.from((new Uint32Array([SEQ = (SEQ+1)%0xFFFFFFFF])).buffer)]));
 		for(const content of contents) {
@@ -65,6 +90,8 @@ class LogStream {
 	}
 	error(...contents:any[]) {
 		const curr_meta = LogStreamMeta.get(this)!;
+		if ( VerboseLevel.ERROR < curr_meta.level ) return;
+		
 		const log_time = ToLocalISOString(curr_meta.time_milli);
 		const batch = fnv1a32(Buffer.concat([SESSION_ID, Buffer.from(log_time), Buffer.from((new Uint32Array([SEQ = (SEQ+1)%0xFFFFFFFF])).buffer)]));
 		for(const content of contents) {
@@ -73,6 +100,8 @@ class LogStream {
 	}
 	fatal(...contents:any[]) {
 		const curr_meta = LogStreamMeta.get(this)!;
+		if ( VerboseLevel.FATAL < curr_meta.level ) return;
+		
 		const log_time = ToLocalISOString(curr_meta.time_milli);
 		const batch = fnv1a32(Buffer.concat([SESSION_ID, Buffer.from(log_time), Buffer.from((new Uint32Array([SEQ = (SEQ+1)%0xFFFFFFFF])).buffer)]));
 		for(const content of contents) {
@@ -131,8 +160,12 @@ export const LogTool = Object.defineProperties(new LogStream(), {
 			LoggerRuntime.writer = writer;
 		},
 		get:()=>LoggerRuntime.writer
+	},
+	LogLevel: {
+		configurable:false, enumerable:true, writable:false,
+		value: VerboseLevel
 	}
-}) as LogStream&{__writer:LogWriter};
+}) as LogStream&{__writer:LogWriter, LogLevel:typeof VerboseLevel};
 
 
 
