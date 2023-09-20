@@ -52,7 +52,7 @@ else  {
 
 
 
-const PRIVATE = new WeakMap();
+const PRIVATE:WeakMap<TinyId, {buffer:Uint8Array}> = new WeakMap();
 export class TinyId {
 	static _base(machine_id:string, session_id:string) {
 		RUNTIME.IDENTITY = fnv1a32(UTF8Encode(`${machine_id}#${session_id}`));
@@ -62,7 +62,7 @@ export class TinyId {
 		let input_buffer:Uint8Array|null = null;
 
 		if ( id instanceof TinyId ) {
-			input_buffer = PRIVATE.get(id).buffer;
+			input_buffer = PRIVATE.get(id)!.buffer;
 		}
 		else
 		// Uint8Array & NodeJS Buffer
@@ -145,25 +145,29 @@ export class TinyId {
 		
 		PRIVATE.set(this, _UniqueId);
 	}
-	toString() {
-		return Base32HexEncode(PRIVATE.get(this).buffer);
+	toString(radix:32|36=36) {
+		if ( radix === 32 ) {
+			return Base32HexEncode(PRIVATE.get(this)!.buffer);
+		}
+
+		return Base36Encode(PRIVATE.get(this)!.buffer);
 	}
 	
 	get bytes() {
-		return PRIVATE.get(this).buffer;
+		return PRIVATE.get(this)!.buffer;
 	}
 	get timestamp() {
-		const bytes = PRIVATE.get(this).buffer;
+		const bytes = PRIVATE.get(this)!.buffer;
 		const upper = bytes[0] * TIME_SEPARATOR;
 		const lower = (((bytes[1] << 24)|(bytes[2] << 16)|(bytes[3] << 8)|bytes[4]) >>> 0);
 		return upper + lower;
 	}
 	get identity() {
-		const bytes = PRIVATE.get(this).buffer;
+		const bytes = PRIVATE.get(this)!.buffer;
 		return (((bytes[5] << 24)|(bytes[6] << 16)|(bytes[7] << 8)|bytes[8]) >>> 0);
 	}
 	get seq() {
-		const bytes = PRIVATE.get(this).buffer;
+		const bytes = PRIVATE.get(this)!.buffer;
 		return (((bytes[9] << 8)|bytes[10]) >>> 0);
 	}
 	
@@ -172,14 +176,48 @@ export class TinyId {
 	static get NEW() {
 		return new TinyId();
 	}
-	static from(input?:string|TinyId|ArrayBuffer|TypedArray):TinyId|null {
+	static from():TinyId;
+	static from(input:string|TinyId|ArrayBuffer|TypedArray):TinyId|null;
+	static from(input:string|TinyId|ArrayBuffer|TypedArray):TinyId|null;
+	static from(input:string, radix:32|36):TinyId|null;
+	static from(input?:string|TinyId|ArrayBuffer|TypedArray, radix:32|36=36):TinyId|null {
 		try {
 			if ( typeof input === "string" ) {
-				input = Base32HexDecode(input);
+				if ( radix === 32 ) {
+					input = Base32HexDecode(input);
+				}
+				else {
+					input = Base36Decode(input);
+				}
 			}
 			return new TinyId(input);
 		} catch(e) { return null; }
 	}
+}
+
+
+
+const BASE36_ENCODE_CHAR = '0123456789abcdefghijklmnopqrstuvwxyz';
+function Base36Encode(bytes:Uint8Array):string {
+	if ( bytes.length < 1 ) return '';
+	return bytes.reduce((p, c)=>{return ((p<<8n) + BigInt(c))}, 0n).toString(36);
+}
+function Base36Decode(input:string):Uint8Array {
+	input = input.toLowerCase();
+
+	const keyspaceLength = BigInt(BASE36_ENCODE_CHAR.length);
+	const raw_hex = input.split('').reduce((p, c)=>{
+		const value = BASE36_ENCODE_CHAR.indexOf(c);
+		if (value === -1) throw new Error("invalid string");
+		return p * keyspaceLength + BigInt(value);
+	}, 0n).toString(16);
+	const hex = raw_hex.padStart((raw_hex.length + (raw_hex.length%2)), '0');
+	const result = new Uint8Array(Math.floor(hex.length/2));
+	for(let i=0; i<result.length; i++) {
+		result[i] = Number.parseInt(hex.slice(i, i+2));
+	}
+
+	return result;
 }
 
 
